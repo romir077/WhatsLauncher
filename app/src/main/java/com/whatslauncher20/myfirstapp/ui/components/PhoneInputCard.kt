@@ -24,6 +24,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.whatslauncher20.myfirstapp.util.COUNTRY_CODES
 import com.whatslauncher20.myfirstapp.util.Country
 import com.whatslauncher20.myfirstapp.util.findCountryByCode
+import com.whatslauncher20.myfirstapp.util.getPhoneLength
 
 @Composable
 fun PhoneInputCard(
@@ -44,6 +45,7 @@ fun PhoneInputCard(
     } else {
         selectedCode
     }
+    val maxLength = getPhoneLength(selectedCode).last
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -99,7 +101,9 @@ fun PhoneInputCard(
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { newValue ->
-                        if (newValue.length <= 10 && newValue.all { it.isDigit() }) {
+                        if (newValue.all { it.isDigit() } &&
+                            (newValue.length <= maxLength || newValue.length < phoneNumber.length)
+                        ) {
                             onPhoneChange(newValue)
                         }
                     },

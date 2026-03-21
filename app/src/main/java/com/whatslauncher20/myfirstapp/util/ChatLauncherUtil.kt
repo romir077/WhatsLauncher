@@ -12,12 +12,120 @@ private const val MAX_RECENT = 10
 private const val KEY_FAVORITES = "favorite_numbers"
 private const val KEY_TEMPLATES = "message_templates"
 
-fun validatePhone(phone: String): String? {
+fun validatePhone(phone: String, countryCode: String = ""): String? {
     if (phone.isEmpty()) return "Please enter a phone number"
-    if (phone.length != 10) return "Enter a 10-digit phone number"
     if (!phone.all { it.isDigit() }) return "Only digits allowed"
+    val range = getPhoneLength(countryCode)
+    if (phone.length !in range) {
+        return if (range.first == range.last) "Enter a ${range.first}-digit number"
+        else "Enter ${range.first}-${range.last} digits"
+    }
     return null
 }
+
+fun getPhoneLength(countryCode: String): IntRange {
+    return PHONE_LENGTHS[countryCode] ?: 4..15
+}
+
+private val PHONE_LENGTHS: Map<String, IntRange> = mapOf(
+    "+1" to 10..10,       // US, Canada
+    "+7" to 10..10,       // Russia, Kazakhstan
+    "+20" to 10..10,      // Egypt
+    "+27" to 9..9,        // South Africa
+    "+30" to 10..10,      // Greece
+    "+31" to 9..9,        // Netherlands
+    "+32" to 8..9,        // Belgium
+    "+33" to 9..9,        // France
+    "+34" to 9..9,        // Spain
+    "+36" to 8..9,        // Hungary
+    "+39" to 9..10,       // Italy
+    "+40" to 9..9,        // Romania
+    "+41" to 9..9,        // Switzerland
+    "+43" to 10..13,      // Austria
+    "+44" to 10..10,      // UK
+    "+45" to 8..8,        // Denmark
+    "+46" to 7..13,       // Sweden
+    "+47" to 8..8,        // Norway
+    "+48" to 9..9,        // Poland
+    "+49" to 10..11,      // Germany
+    "+51" to 9..9,        // Peru
+    "+52" to 10..10,      // Mexico
+    "+53" to 8..8,        // Cuba
+    "+54" to 10..10,      // Argentina
+    "+55" to 10..11,      // Brazil
+    "+56" to 9..9,        // Chile
+    "+57" to 10..10,      // Colombia
+    "+58" to 10..10,      // Venezuela
+    "+60" to 9..10,       // Malaysia
+    "+61" to 9..9,        // Australia
+    "+62" to 9..12,       // Indonesia
+    "+63" to 10..10,      // Philippines
+    "+64" to 8..10,       // New Zealand
+    "+65" to 8..8,        // Singapore
+    "+66" to 9..9,        // Thailand
+    "+81" to 10..10,      // Japan
+    "+82" to 9..10,       // South Korea
+    "+84" to 9..10,       // Vietnam
+    "+86" to 11..11,      // China
+    "+90" to 10..10,      // Turkey
+    "+91" to 10..10,      // India
+    "+92" to 10..10,      // Pakistan
+    "+93" to 9..9,        // Afghanistan
+    "+94" to 9..9,        // Sri Lanka
+    "+95" to 8..10,       // Myanmar
+    "+98" to 10..10,      // Iran
+    "+212" to 9..9,       // Morocco
+    "+213" to 9..9,       // Algeria
+    "+216" to 8..8,       // Tunisia
+    "+218" to 9..10,      // Libya
+    "+220" to 7..7,       // Gambia
+    "+221" to 9..9,       // Senegal
+    "+224" to 9..9,       // Guinea
+    "+233" to 9..9,       // Ghana
+    "+234" to 10..10,     // Nigeria
+    "+249" to 9..9,       // Sudan
+    "+251" to 9..9,       // Ethiopia
+    "+254" to 9..9,       // Kenya
+    "+255" to 9..9,       // Tanzania
+    "+256" to 9..9,       // Uganda
+    "+260" to 9..9,       // Zambia
+    "+263" to 9..9,       // Zimbabwe
+    "+351" to 9..9,       // Portugal
+    "+353" to 7..9,       // Ireland
+    "+354" to 7..7,       // Iceland
+    "+358" to 9..10,      // Finland
+    "+370" to 8..8,       // Lithuania
+    "+371" to 8..8,       // Latvia
+    "+372" to 7..8,       // Estonia
+    "+380" to 9..9,       // Ukraine
+    "+420" to 9..9,       // Czech Republic
+    "+421" to 9..9,       // Slovakia
+    "+880" to 10..10,     // Bangladesh
+    "+886" to 9..9,       // Taiwan
+    "+960" to 7..7,       // Maldives
+    "+961" to 7..8,       // Lebanon
+    "+962" to 9..9,       // Jordan
+    "+963" to 9..9,       // Syria
+    "+964" to 10..10,     // Iraq
+    "+965" to 8..8,       // Kuwait
+    "+966" to 9..9,       // Saudi Arabia
+    "+967" to 9..9,       // Yemen
+    "+968" to 8..8,       // Oman
+    "+970" to 9..9,       // Palestine
+    "+971" to 9..9,       // UAE
+    "+972" to 9..9,       // Israel
+    "+973" to 8..8,       // Bahrain
+    "+974" to 8..8,       // Qatar
+    "+975" to 8..8,       // Bhutan
+    "+976" to 8..8,       // Mongolia
+    "+977" to 10..10,     // Nepal
+    "+992" to 9..9,       // Tajikistan
+    "+993" to 8..8,       // Turkmenistan
+    "+994" to 9..9,       // Azerbaijan
+    "+995" to 9..9,       // Georgia
+    "+996" to 9..9,       // Kyrgyzstan
+    "+998" to 9..9,       // Uzbekistan
+)
 
 fun openWhatsApp(context: Context, fullNumber: String, message: String = "") {
     val url = if (message.isNotEmpty()) {
@@ -28,8 +136,11 @@ fun openWhatsApp(context: Context, fullNumber: String, message: String = "") {
     launchAppUrl(context, url, "WhatsApp")
 }
 
-fun openTelegram(context: Context, fullNumber: String, @Suppress("UNUSED_PARAMETER") message: String = "") {
-    val uri = "tg://resolve?phone=$fullNumber"
+fun openTelegram(context: Context, fullNumber: String, message: String = "") {
+    val uri = buildString {
+        append("tg://resolve?phone=$fullNumber")
+        if (message.isNotEmpty()) append("&text=${Uri.encode(message)}")
+    }
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
     intent.setPackage("org.telegram.messenger")
     try {
@@ -40,7 +151,11 @@ fun openTelegram(context: Context, fullNumber: String, @Suppress("UNUSED_PARAMET
         try {
             context.startActivity(webIntent)
         } catch (e2: ActivityNotFoundException) {
-            launchAppUrl(context, "https://t.me/+$fullNumber", "Telegram")
+            val webUrl = buildString {
+                append("https://t.me/+$fullNumber")
+                if (message.isNotEmpty()) append("?text=${Uri.encode(message)}")
+            }
+            launchAppUrl(context, webUrl, "Telegram")
         }
     }
 }
@@ -107,30 +222,45 @@ fun clearRecentNumbers(context: Context) {
 
 // --- Favorites ---
 
-fun loadFavorites(context: Context): List<String> {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val raw = prefs.getString(KEY_FAVORITES, "") ?: ""
-    return if (raw.isEmpty()) emptyList() else raw.split("|")
+private const val FAV_LABEL_SEP = "\u001E"
+
+data class Favorite(val number: String, val label: String) {
+    fun encode(): String = if (label.isEmpty()) number else "$number$FAV_LABEL_SEP$label"
+    companion object {
+        fun decode(raw: String): Favorite {
+            val parts = raw.split(FAV_LABEL_SEP, limit = 2)
+            return Favorite(parts[0], parts.getOrElse(1) { "" })
+        }
+    }
 }
 
-fun addFavorite(context: Context, number: String) {
+fun loadFavorites(context: Context): List<Favorite> {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val raw = prefs.getString(KEY_FAVORITES, "") ?: ""
+    return if (raw.isEmpty()) emptyList() else raw.split("|").map { Favorite.decode(it) }
+}
+
+fun addFavorite(context: Context, number: String, label: String = "") {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val existing = loadFavorites(context).toMutableList()
-    if (!existing.contains(number)) {
-        existing.add(0, number)
-        prefs.edit().putString(KEY_FAVORITES, existing.joinToString("|")).apply()
+    existing.removeAll { it.number == number }
+    existing.add(0, Favorite(number, label))
+    prefs.edit().putString(KEY_FAVORITES, existing.joinToString("|") { it.encode() }).apply()
+}
+
+fun updateFavoriteLabel(context: Context, number: String, newLabel: String) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val existing = loadFavorites(context).map {
+        if (it.number == number) it.copy(label = newLabel) else it
     }
+    prefs.edit().putString(KEY_FAVORITES, existing.joinToString("|") { it.encode() }).apply()
 }
 
 fun removeFavorite(context: Context, number: String) {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val existing = loadFavorites(context).toMutableList()
-    existing.remove(number)
-    prefs.edit().putString(KEY_FAVORITES, existing.joinToString("|")).apply()
-}
-
-fun isFavorite(context: Context, number: String): Boolean {
-    return loadFavorites(context).contains(number)
+    existing.removeAll { it.number == number }
+    prefs.edit().putString(KEY_FAVORITES, existing.joinToString("|") { it.encode() }).apply()
 }
 
 // --- Message Templates ---
@@ -149,6 +279,12 @@ fun saveTemplate(context: Context, template: String) {
     prefs.edit().putString(KEY_TEMPLATES, existing.joinToString("\u001F")).apply()
 }
 
+fun editTemplate(context: Context, oldTemplate: String, newTemplate: String) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val existing = loadTemplates(context).map { if (it == oldTemplate) newTemplate else it }
+    prefs.edit().putString(KEY_TEMPLATES, existing.joinToString("\u001F")).apply()
+}
+
 fun removeTemplate(context: Context, template: String) {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val existing = loadTemplates(context).toMutableList()
@@ -158,7 +294,7 @@ fun removeTemplate(context: Context, template: String) {
 
 fun extractPhoneNumber(text: String): String? {
     val cleaned = text.replace(Regex("[\\s\\-()]+"), "")
-    val match = Regex("(?:\\+?91)?([6-9]\\d{9})").find(cleaned)
+    val match = Regex("\\+?(\\d{7,15})").find(cleaned)
     return match?.groupValues?.get(1)
 }
 

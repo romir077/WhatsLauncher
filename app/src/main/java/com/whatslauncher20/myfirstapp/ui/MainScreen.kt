@@ -2,6 +2,7 @@ package com.whatslauncher20.myfirstapp.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +17,7 @@ import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,38 +27,89 @@ import com.whatslauncher20.myfirstapp.ui.components.FavoritesSection
 import com.whatslauncher20.myfirstapp.ui.components.MessageTemplatesSection
 import com.whatslauncher20.myfirstapp.ui.components.PhoneInputCard
 import com.whatslauncher20.myfirstapp.ui.components.RecentNumbersSection
-import com.whatslauncher20.myfirstapp.ui.theme.ArattaiYellow
-import com.whatslauncher20.myfirstapp.ui.theme.SignalBlue
-import com.whatslauncher20.myfirstapp.ui.theme.TelegramBlue
-import com.whatslauncher20.myfirstapp.ui.theme.WhatsAppGreen
-import com.whatslauncher20.myfirstapp.ui.theme.WhatsAppTeal
+import com.whatslauncher20.myfirstapp.ui.theme.*
 import com.whatslauncher20.myfirstapp.util.*
+import kotlinx.coroutines.launch
+
+data class MessengerApp(
+    val name: String,
+    val color: Color,
+    val contentColor: Color = Color.White,
+    val launch: (Context, String, String, String) -> Unit
+)
+
+private val messengerApps = listOf(
+    MessengerApp("WhatsApp", WhatsAppGreen) { ctx, code, phone, msg ->
+        openWhatsApp(ctx, "${code}${phone}", msg)
+    },
+    MessengerApp("Telegram", TelegramBlue) { ctx, code, phone, msg ->
+        openTelegram(ctx, "${code}${phone}", msg)
+    },
+    MessengerApp("Signal", SignalBlue) { ctx, code, phone, msg ->
+        openSignal(ctx, "${code}${phone}", msg)
+    },
+    MessengerApp("Arattai", ArattaiYellow, contentColor = Color(0xFF3E2723)) { ctx, code, phone, msg ->
+        openArattai(ctx, code, phone, msg)
+    }
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(sharedPhoneNumber: String? = null) {
     var phoneNumber by remember { mutableStateOf("") }
     var selectedCode by remember { mutableStateOf("+91") }
     var codeExpanded by remember { mutableStateOf(false) }
     var phoneError by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf("") }
     var clipboardNumber by remember { mutableStateOf<String?>(null) }
+
+    // Dialog state
     var showAddTemplateDialog by remember { mutableStateOf(false) }
+    var editingTemplate by remember { mutableStateOf<String?>(null) }
+    var showFavLabelDialog by remember { mutableStateOf<FavLabelDialogState?>(null) }
 
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val view = LocalView.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val recentNumbers = remember { mutableStateListOf<String>() }
-    val favorites = remember { mutableStateListOf<String>() }
+    val favorites = remember { mutableStateListOf<Favorite>() }
     val templates = remember { mutableStateListOf<String>() }
 
-    LaunchedEffect(Unit) {
+    fun refreshRecents() {
+        recentNumbers.clear()
         recentNumbers.addAll(loadRecentNumbers(context))
+    }
+
+    fun refreshFavorites() {
+        favorites.clear()
         favorites.addAll(loadFavorites(context))
+    }
+
+    fun refreshTemplates() {
+        templates.clear()
         templates.addAll(loadTemplates(context))
+    }
+
+    LaunchedEffect(Unit) {
+        refreshRecents()
+        refreshFavorites()
+        refreshTemplates()
         val sysClipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clipText = sysClipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
         val extracted = extractPhoneNumber(clipText)
         if (extracted != null) clipboardNumber = extracted
+    }
+
+    LaunchedEffect(sharedPhoneNumber) {
+        if (sharedPhoneNumber != null) {
+            val extracted = extractPhoneNumber(sharedPhoneNumber)
+            if (extracted != null) {
+                phoneNumber = extracted
+                phoneError = null
+            }
+        }
     }
 
     Scaffold(
@@ -68,7 +121,8 @@ fun MainScreen() {
                     titleContentColor = Color.White
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -90,7 +144,7 @@ fun MainScreen() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Open a WhatsApp chat with any number\nwithout adding them to your contacts",
+                text = "Open a chat on any messenger\nwithout adding them to your contacts",
                 fontSize = 15.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -112,7 +166,14 @@ fun MainScreen() {
                 onPhoneChange = { phoneNumber = it; phoneError = null },
                 phoneError = phoneError,
                 selectedCode = selectedCode,
-                onCodeChange = { selectedCode = it },
+                onCodeChange = { newCode ->
+                    selectedCode = newCode
+                    val newMax = getPhoneLength(newCode).last
+                    if (phoneNumber.length > newMax) {
+                        phoneNumber = phoneNumber.take(newMax)
+                    }
+                    phoneError = null
+                },
                 codeExpanded = codeExpanded,
                 onCodeExpandedChange = { codeExpanded = it },
                 message = message,
@@ -136,56 +197,28 @@ fun MainScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // WhatsApp
-                Button(
-                    onClick = { launchApp(context, phoneNumber, selectedCode, message, focusManager, recentNumbers, { pn, msg -> openWhatsApp(context, pn, msg) }) { phoneError = it } },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen),
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("WhatsApp", fontSize = 10.sp, maxLines = 1)
-                    }
-                }
-                // Telegram
-                Button(
-                    onClick = { launchApp(context, phoneNumber, selectedCode, message, focusManager, recentNumbers, { pn, msg -> openTelegram(context, pn, msg) }) { phoneError = it } },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TelegramBlue),
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Telegram", fontSize = 10.sp, maxLines = 1)
-                    }
-                }
-                // Signal
-                Button(
-                    onClick = { launchApp(context, phoneNumber, selectedCode, message, focusManager, recentNumbers, { pn, msg -> openSignal(context, pn, msg) }) { phoneError = it } },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SignalBlue),
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Signal", fontSize = 10.sp, maxLines = 1)
-                    }
-                }
-                // Arattai
-                Button(
-                    onClick = { launchApp(context, phoneNumber, selectedCode, message, focusManager, recentNumbers, { _, msg -> openArattai(context, selectedCode.replace("+", ""), phoneNumber, msg) }) { phoneError = it } },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ArattaiYellow, contentColor = Color(0xFF3E2723)),
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Arattai", fontSize = 10.sp, maxLines = 1)
+                messengerApps.forEach { app ->
+                    Button(
+                        onClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            launchApp(
+                                context, phoneNumber, selectedCode, message,
+                                focusManager, recentNumbers, app.name, snackbarHostState, scope,
+                                { code, phone, msg -> app.launch(context, code, phone, msg) }
+                            ) { phoneError = it }
+                        },
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = app.color,
+                            contentColor = app.contentColor
+                        ),
+                        shape = MaterialTheme.shapes.medium,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(app.name, fontSize = 10.sp, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -194,10 +227,10 @@ fun MainScreen() {
                 templates = templates,
                 onTemplateSelected = { message = it },
                 onAddTemplate = { showAddTemplateDialog = true },
+                onEditTemplate = { editingTemplate = it },
                 onDeleteTemplate = { template ->
                     removeTemplate(context, template)
-                    templates.clear()
-                    templates.addAll(loadTemplates(context))
+                    refreshTemplates()
                 }
             )
 
@@ -208,10 +241,12 @@ fun MainScreen() {
                     phoneNumber = phone
                     phoneError = null
                 },
+                onEditLabel = { fav ->
+                    showFavLabelDialog = FavLabelDialogState(fav.number, fav.label)
+                },
                 onRemoveFavorite = { number ->
                     removeFavorite(context, number)
-                    favorites.clear()
-                    favorites.addAll(loadFavorites(context))
+                    refreshFavorites()
                 }
             )
 
@@ -224,17 +259,14 @@ fun MainScreen() {
                 },
                 onRemove = { number ->
                     removeRecentNumber(context, number)
-                    recentNumbers.clear()
-                    recentNumbers.addAll(loadRecentNumbers(context))
+                    refreshRecents()
                 },
                 onClear = {
                     clearRecentNumbers(context)
                     recentNumbers.clear()
                 },
                 onFavorite = { number ->
-                    addFavorite(context, number)
-                    favorites.clear()
-                    favorites.addAll(loadFavorites(context))
+                    showFavLabelDialog = FavLabelDialogState(number, "")
                 }
             )
 
@@ -249,18 +281,54 @@ fun MainScreen() {
         }
     }
 
+    // Add template dialog
     if (showAddTemplateDialog) {
-        AddTemplateDialog(
+        TemplateDialog(
+            title = "New Message Template",
+            initialText = "",
             onDismiss = { showAddTemplateDialog = false },
             onSave = { template ->
                 saveTemplate(context, template)
-                templates.clear()
-                templates.addAll(loadTemplates(context))
+                refreshTemplates()
                 showAddTemplateDialog = false
             }
         )
     }
+
+    // Edit template dialog
+    editingTemplate?.let { oldTemplate ->
+        TemplateDialog(
+            title = "Edit Template",
+            initialText = oldTemplate,
+            onDismiss = { editingTemplate = null },
+            onSave = { newTemplate ->
+                editTemplate(context, oldTemplate, newTemplate)
+                refreshTemplates()
+                editingTemplate = null
+            }
+        )
+    }
+
+    // Favorite label dialog
+    showFavLabelDialog?.let { state ->
+        FavoriteLabelDialog(
+            number = state.number,
+            initialLabel = state.label,
+            onDismiss = { showFavLabelDialog = null },
+            onSave = { label ->
+                if (state.label.isEmpty() && loadFavorites(context).none { it.number == state.number }) {
+                    addFavorite(context, state.number, label)
+                } else {
+                    updateFavoriteLabel(context, state.number, label)
+                }
+                refreshFavorites()
+                showFavLabelDialog = null
+            }
+        )
+    }
 }
+
+private data class FavLabelDialogState(val number: String, val label: String)
 
 private fun launchApp(
     context: Context,
@@ -269,10 +337,13 @@ private fun launchApp(
     message: String,
     focusManager: FocusManager,
     recentNumbers: SnapshotStateList<String>,
-    openApp: (fullNumber: String, msg: String) -> Unit,
+    appName: String,
+    snackbarHostState: SnackbarHostState,
+    scope: kotlinx.coroutines.CoroutineScope,
+    openApp: (code: String, phone: String, msg: String) -> Unit,
     setError: (String?) -> Unit
 ) {
-    val error = validatePhone(phoneNumber)
+    val error = validatePhone(phoneNumber, selectedCode)
     if (error != null) {
         setError(error)
     } else {
@@ -282,20 +353,29 @@ private fun launchApp(
         saveRecentNumber(context, "$selectedCode $phoneNumber")
         recentNumbers.clear()
         recentNumbers.addAll(loadRecentNumbers(context))
-        openApp("$code$phoneNumber", message.trim())
+        openApp(code, phoneNumber, message.trim())
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(
+                message = "Opened in $appName",
+                duration = SnackbarDuration.Short
+            )
+        }
     }
 }
 
 @Composable
-private fun AddTemplateDialog(
+private fun TemplateDialog(
+    title: String,
+    initialText: String,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    var text by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf(initialText) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New Message Template") },
+        title = { Text(title) },
         text = {
             OutlinedTextField(
                 value = text,
@@ -310,6 +390,48 @@ private fun AddTemplateDialog(
                 onClick = { if (text.isNotBlank()) onSave(text.trim()) },
                 enabled = text.isNotBlank()
             ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun FavoriteLabelDialog(
+    number: String,
+    initialLabel: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var label by remember { mutableStateOf(initialLabel) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Label for Favorite") },
+        text = {
+            Column {
+                Text(
+                    text = number,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    placeholder = { Text("e.g. Mom, Plumber, Doctor") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(label.trim()) }) {
                 Text("Save")
             }
         },

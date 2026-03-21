@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ fun MessageTemplatesSection(
     templates: List<String>,
     onTemplateSelected: (String) -> Unit,
     onAddTemplate: () -> Unit,
+    onEditTemplate: (String) -> Unit,
     onDeleteTemplate: (String) -> Unit
 ) {
     Spacer(modifier = Modifier.height(20.dp))
@@ -87,6 +89,17 @@ fun MessageTemplatesSection(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    IconButton(
+                        onClick = { onEditTemplate(template) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Edit,
+                            contentDescription = "Edit template",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(
                         onClick = { onDeleteTemplate(template) },
                         modifier = Modifier.size(36.dp)
