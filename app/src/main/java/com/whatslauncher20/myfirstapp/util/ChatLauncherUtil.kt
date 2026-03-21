@@ -14,7 +14,7 @@ private const val KEY_TEMPLATES = "message_templates"
 
 fun validatePhone(phone: String): String? {
     if (phone.isEmpty()) return "Please enter a phone number"
-    if (phone.length < 4 || phone.length > 15) return "Enter a valid phone number"
+    if (phone.length != 10) return "Enter a 10-digit phone number"
     if (!phone.all { it.isDigit() }) return "Only digits allowed"
     return null
 }

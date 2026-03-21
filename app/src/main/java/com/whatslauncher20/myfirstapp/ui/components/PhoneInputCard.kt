@@ -99,7 +99,7 @@ fun PhoneInputCard(
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { newValue ->
-                        if (newValue.length <= 15 && newValue.all { it.isDigit() }) {
+                        if (newValue.length <= 10 && newValue.all { it.isDigit() }) {
                             onPhoneChange(newValue)
                         }
                     },
