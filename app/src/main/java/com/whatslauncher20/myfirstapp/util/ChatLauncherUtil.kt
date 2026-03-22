@@ -295,7 +295,22 @@ fun removeTemplate(context: Context, template: String) {
 fun extractPhoneNumber(text: String): String? {
     val cleaned = text.replace(Regex("[\\s\\-()]+"), "")
     val match = Regex("\\+?(\\d{7,15})").find(cleaned)
-    return match?.groupValues?.get(1)
+    return match?.groupValues?.get(1)?.trimStart('0')
+}
+
+fun extractPhoneWithoutCode(text: String, countryCode: String): String {
+    var digits = text.replace(Regex("[^\\d]"), "")
+    val codeDigits = countryCode.replace("+", "")
+    val maxLen = getPhoneLength(countryCode).last
+    // Only strip country code if number is too long (has country code prepended)
+    if (codeDigits.isNotEmpty() && digits.startsWith(codeDigits) && digits.length > maxLen) {
+        digits = digits.removePrefix(codeDigits)
+    }
+    digits = digits.trimStart('0')
+    if (digits.length > maxLen) {
+        digits = digits.takeLast(maxLen)
+    }
+    return digits
 }
 
 data class Country(val flag: String, val name: String, val code: String)

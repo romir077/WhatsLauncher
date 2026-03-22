@@ -23,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.whatslauncher20.myfirstapp.util.COUNTRY_CODES
 import com.whatslauncher20.myfirstapp.util.Country
+import com.whatslauncher20.myfirstapp.util.extractPhoneWithoutCode
 import com.whatslauncher20.myfirstapp.util.findCountryByCode
 import com.whatslauncher20.myfirstapp.util.getPhoneLength
 
@@ -101,10 +102,15 @@ fun PhoneInputCard(
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { newValue ->
-                        if (newValue.all { it.isDigit() } &&
-                            (newValue.length <= maxLength || newValue.length < phoneNumber.length)
+                        val cleaned = if (newValue.any { !it.isDigit() }) {
+                            extractPhoneWithoutCode(newValue, selectedCode)
+                        } else {
+                            newValue
+                        }
+                        if (cleaned.all { it.isDigit() } &&
+                            (cleaned.length <= maxLength || cleaned.length < phoneNumber.length)
                         ) {
-                            onPhoneChange(newValue)
+                            onPhoneChange(cleaned.take(maxLength))
                         }
                     },
                     label = { Text("Number") },

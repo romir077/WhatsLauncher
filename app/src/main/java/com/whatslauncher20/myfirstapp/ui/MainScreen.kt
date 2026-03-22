@@ -14,6 +14,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
@@ -95,21 +98,50 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
         templates.addAll(loadTemplates(context))
     }
 
+    val currentSelectedCode by rememberUpdatedState(selectedCode)
+
+    fun updateClipboard() {
+        val sysClipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = sysClipboard.primaryClip
+        // On Android 10+, clipboard may be null when app lacks focus — keep existing value
+        if (clip == null || clip.itemCount == 0) return
+        val clipText = clip.getItemAt(0)?.text?.toString() ?: ""
+        val extracted = extractPhoneNumber(clipText)
+        clipboardNumber = if (extracted != null) extractPhoneWithoutCode(clipText, currentSelectedCode) else null
+    }
+
     LaunchedEffect(Unit) {
         refreshRecents()
         refreshFavorites()
         refreshTemplates()
+        updateClipboard()
+    }
+
+    // Real-time clipboard listener
+    DisposableEffect(Unit) {
         val sysClipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clipText = sysClipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
-        val extracted = extractPhoneNumber(clipText)
-        if (extracted != null) clipboardNumber = extracted
+        val listener = ClipboardManager.OnPrimaryClipChangedListener { updateClipboard() }
+        sysClipboard.addPrimaryClipChangedListener(listener)
+        onDispose { sysClipboard.removePrimaryClipChangedListener(listener) }
+    }
+
+    // Refresh clipboard when app comes back to foreground or starts
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME || event == Lifecycle.Event.ON_START) {
+                updateClipboard()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(sharedPhoneNumber) {
         if (sharedPhoneNumber != null) {
             val extracted = extractPhoneNumber(sharedPhoneNumber)
             if (extracted != null) {
-                phoneNumber = extracted
+                phoneNumber = extractPhoneWithoutCode(sharedPhoneNumber, selectedCode)
                 phoneError = null
             }
         }
@@ -191,7 +223,6 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                 onUse = { number ->
                     phoneNumber = number
                     phoneError = null
-                    clipboardNumber = null
                 }
             )
 
@@ -204,9 +235,10 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                     selectedCode = newCode
                     val newMax = getPhoneLength(newCode).last
                     if (phoneNumber.length > newMax) {
-                        phoneNumber = phoneNumber.take(newMax)
+                        phoneNumber = phoneNumber.takeLast(newMax)
                     }
                     phoneError = null
+                    updateClipboard()
                 },
                 codeExpanded = codeExpanded,
                 onCodeExpandedChange = { codeExpanded = it },
