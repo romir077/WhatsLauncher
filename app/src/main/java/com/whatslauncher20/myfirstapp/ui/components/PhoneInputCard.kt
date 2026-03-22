@@ -52,16 +52,16 @@ fun PhoneInputCard(
         shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "PHONE NUMBER",
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 letterSpacing = 1.sp
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -74,7 +74,7 @@ fun PhoneInputCard(
                     readOnly = true,
                     label = { Text("Code") },
                     modifier = Modifier
-                        .width(110.dp)
+                        .width(100.dp)
                         .clickable { onCodeExpandedChange(true) },
                     singleLine = true,
                     enabled = false,
@@ -95,7 +95,7 @@ fun PhoneInputCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // Phone number field
                 OutlinedTextField(
@@ -107,7 +107,7 @@ fun PhoneInputCard(
                             onPhoneChange(newValue)
                         }
                     },
-                    label = { Text("Phone number") },
+                    label = { Text("Number") },
                     isError = phoneError != null,
                     trailingIcon = {
                         if (phoneNumber.isNotEmpty()) {
@@ -137,20 +137,14 @@ fun PhoneInputCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Message field
             OutlinedTextField(
                 value = message,
                 onValueChange = onMessageChange,
-                label = { Text("Message (optional)") },
-                leadingIcon = {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.Message,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
+                label = { Text("Message") },
+                placeholder = { Text("Optional") },
                 trailingIcon = {
                     if (message.isNotEmpty()) {
                         IconButton(onClick = { onMessageChange("") }) {
@@ -162,7 +156,6 @@ fun PhoneInputCard(
                         }
                     }
                 },
-                placeholder = { Text("e.g. Hi, I found your number on...") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(
                     onDone = { onClearFocus() }

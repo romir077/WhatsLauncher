@@ -134,6 +134,14 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
+                            text = { Text("Privacy Policy") },
+                            onClick = {
+                                menuExpanded = false
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://romir077.github.io/WhatsLauncher/privacy-policy.html"))
+                                context.startActivity(intent)
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Report a safety concern") },
                             onClick = {
                                 menuExpanded = false
