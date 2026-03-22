@@ -2,12 +2,15 @@ package com.whatslauncher20.myfirstapp.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -112,6 +115,8 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
         }
     }
 
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -119,7 +124,28 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = WhatsAppTeal,
                     titleContentColor = Color.White
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = Color.White)
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Report a safety concern") },
+                            onClick = {
+                                menuExpanded = false
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:ruchir.mehta2112@gmail.com")
+                                    putExtra(Intent.EXTRA_SUBJECT, "WhatsLauncher - Safety Concern Report")
+                                }
+                                context.startActivity(intent)
+                            }
+                        )
+                    }
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
