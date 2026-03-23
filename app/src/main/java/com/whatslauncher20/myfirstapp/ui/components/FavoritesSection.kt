@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whatslauncher20.myfirstapp.util.Favorite
+import com.whatslauncher20.myfirstapp.util.parseStoredNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,9 +22,10 @@ fun FavoritesSection(
     favorites: List<Favorite>,
     onNumberSelected: (code: String, phone: String) -> Unit,
     onEditLabel: (Favorite) -> Unit,
-    onRemoveFavorite: (String) -> Unit
+    onRemoveFavorite: (String) -> Unit,
+    showEmptyHint: Boolean = false
 ) {
-    if (favorites.isEmpty()) return
+    if (favorites.isEmpty() && !showEmptyHint) return
 
     Spacer(modifier = Modifier.height(20.dp))
 
@@ -48,13 +50,20 @@ fun FavoritesSection(
 
     Spacer(modifier = Modifier.height(8.dp))
 
+    if (favorites.isEmpty()) {
+        Text(
+            text = "Star a recent number to save it here",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.outline
+        )
+        return
+    }
+
     favorites.forEach { fav ->
+        val (code, phone) = parseStoredNumber(fav.number)
         Card(
             onClick = {
-                val parts = fav.number.split(" ", limit = 2)
-                if (parts.size == 2) {
-                    onNumberSelected(parts[0], parts[1])
-                }
+                if (code.isNotEmpty()) onNumberSelected(code, phone)
             },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.small,

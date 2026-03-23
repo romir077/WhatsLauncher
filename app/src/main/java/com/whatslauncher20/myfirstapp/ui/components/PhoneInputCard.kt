@@ -231,7 +231,7 @@ private fun CountryPickerDialog(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
-                Divider()
+                HorizontalDivider()
 
                 // Country list
                 LazyColumn(modifier = Modifier.fillMaxSize()) {

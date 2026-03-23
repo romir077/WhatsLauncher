@@ -10,7 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -41,27 +44,32 @@ data class MessengerApp(
     val name: String,
     val color: Color,
     val contentColor: Color = Color.White,
+    val icon: @Composable () -> Unit,
     val launch: (Context, String, String, String) -> Unit
 )
 
 private val messengerApps = listOf(
-    MessengerApp("WhatsApp", WhatsAppGreen) { ctx, code, phone, msg ->
+    MessengerApp("WhatsApp", WhatsAppGreen, icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp)) }) { ctx, code, phone, msg ->
         openWhatsApp(ctx, "${code}${phone}", msg)
     },
-    MessengerApp("Telegram", TelegramBlue) { ctx, code, phone, msg ->
+    MessengerApp("Telegram", TelegramBlue, icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp)) }) { ctx, code, phone, msg ->
         openTelegram(ctx, "${code}${phone}", msg)
     },
-    MessengerApp("Signal", SignalBlue) { ctx, code, phone, msg ->
+    MessengerApp("Signal", SignalBlue, icon = { Icon(Icons.Filled.Shield, contentDescription = null, modifier = Modifier.size(18.dp)) }) { ctx, code, phone, msg ->
         openSignal(ctx, "${code}${phone}", msg)
     },
-    MessengerApp("Arattai", ArattaiYellow, contentColor = Color(0xFF3E2723)) { ctx, code, phone, msg ->
+    MessengerApp("Arattai", ArattaiYellow, contentColor = Color(0xFF3E2723), icon = { Icon(Icons.Filled.Forum, contentDescription = null, modifier = Modifier.size(18.dp)) }) { ctx, code, phone, msg ->
         openArattai(ctx, code, phone, msg)
     }
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(sharedPhoneNumber: String? = null) {
+fun MainScreen(
+    sharedPhoneNumber: String? = null,
+    darkModeOption: Int = 0,
+    onDarkModeChange: (Int) -> Unit = {}
+) {
     var phoneNumber by remember { mutableStateOf("") }
     var selectedCode by remember { mutableStateOf("+91") }
     var codeExpanded by remember { mutableStateOf(false) }
@@ -148,6 +156,7 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
     }
 
     var menuExpanded by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     Scaffold(
         topBar = {
@@ -165,6 +174,15 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
+                        val darkModeLabels = listOf("System default", "Light", "Dark")
+                        DropdownMenuItem(
+                            text = { Text("Theme: ${darkModeLabels[darkModeOption]}") },
+                            onClick = {
+                                val next = (darkModeOption + 1) % 3
+                                onDarkModeChange(next)
+                            }
+                        )
+                        HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text("Privacy Policy") },
                             onClick = {
@@ -194,7 +212,7 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -282,7 +300,7 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                            app.icon()
                             Text(app.name, fontSize = 10.sp, maxLines = 1)
                         }
                     }
@@ -302,10 +320,12 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
 
             FavoritesSection(
                 favorites = favorites,
+                showEmptyHint = true,
                 onNumberSelected = { code, phone ->
                     selectedCode = code
                     phoneNumber = phone
                     phoneError = null
+                    scope.launch { scrollState.animateScrollTo(0) }
                 },
                 onEditLabel = { fav ->
                     showFavLabelDialog = FavLabelDialogState(fav.number, fav.label)
@@ -322,6 +342,7 @@ fun MainScreen(sharedPhoneNumber: String? = null) {
                     selectedCode = code
                     phoneNumber = phone
                     phoneError = null
+                    scope.launch { scrollState.animateScrollTo(0) }
                 },
                 onRemove = { number ->
                     removeRecentNumber(context, number)

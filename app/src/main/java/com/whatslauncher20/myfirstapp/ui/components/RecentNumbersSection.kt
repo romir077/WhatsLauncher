@@ -6,12 +6,13 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.whatslauncher20.myfirstapp.util.parseStoredNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +24,25 @@ fun RecentNumbersSection(
     onFavorite: (String) -> Unit
 ) {
     if (recentNumbers.isEmpty()) return
+
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Clear all recents?") },
+            text = { Text("This will remove all recent numbers. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearConfirm = false
+                    onClear()
+                }) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     Spacer(modifier = Modifier.height(20.dp))
 
@@ -45,7 +65,7 @@ fun RecentNumbersSection(
         )
         Spacer(modifier = Modifier.weight(1f))
         TextButton(
-            onClick = onClear,
+            onClick = { showClearConfirm = true },
             contentPadding = PaddingValues(horizontal = 8.dp)
         ) {
             Text("Clear all", fontSize = 12.sp)
@@ -55,12 +75,10 @@ fun RecentNumbersSection(
     Spacer(modifier = Modifier.height(4.dp))
 
     recentNumbers.forEach { number ->
+        val (code, phone) = parseStoredNumber(number)
         Card(
             onClick = {
-                val parts = number.split(" ", limit = 2)
-                if (parts.size == 2) {
-                    onNumberSelected(parts[0], parts[1])
-                }
+                if (code.isNotEmpty()) onNumberSelected(code, phone)
             },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.small,

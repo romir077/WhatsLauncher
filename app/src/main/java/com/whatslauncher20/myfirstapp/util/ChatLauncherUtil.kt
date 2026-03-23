@@ -313,6 +313,25 @@ fun extractPhoneWithoutCode(text: String, countryCode: String): String {
     return digits
 }
 
+fun parseStoredNumber(stored: String): Pair<String, String> {
+    val parts = stored.split(" ", limit = 2)
+    return if (parts.size == 2) Pair(parts[0], parts[1]) else Pair("", stored)
+}
+
+// --- Dark Mode Preference ---
+
+private const val KEY_DARK_MODE = "dark_mode_setting"
+
+fun loadDarkModeSetting(context: Context): Int {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.getInt(KEY_DARK_MODE, 0) // 0=System, 1=Light, 2=Dark
+}
+
+fun saveDarkModeSetting(context: Context, mode: Int) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putInt(KEY_DARK_MODE, mode).apply()
+}
+
 data class Country(val flag: String, val name: String, val code: String)
 
 val COUNTRY_CODES = listOf(

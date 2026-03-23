@@ -5,8 +5,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.*
 import com.whatslauncher20.myfirstapp.ui.MainScreen
 import com.whatslauncher20.myfirstapp.ui.theme.WhatsLauncherTheme
+import com.whatslauncher20.myfirstapp.util.loadDarkModeSetting
+import com.whatslauncher20.myfirstapp.util.saveDarkModeSetting
 
 class MainActivity : ComponentActivity() {
 
@@ -17,8 +20,17 @@ class MainActivity : ComponentActivity() {
         val sharedPhone = extractSharedText(intent)
 
         setContent {
-            WhatsLauncherTheme {
-                MainScreen(sharedPhoneNumber = sharedPhone)
+            var darkMode by remember { mutableIntStateOf(loadDarkModeSetting(this@MainActivity)) }
+
+            WhatsLauncherTheme(darkModeOption = darkMode) {
+                MainScreen(
+                    sharedPhoneNumber = sharedPhone,
+                    darkModeOption = darkMode,
+                    onDarkModeChange = { mode ->
+                        darkMode = mode
+                        saveDarkModeSetting(this@MainActivity, mode)
+                    }
+                )
             }
         }
     }
